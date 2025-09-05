@@ -1,5 +1,6 @@
 // app/controllers/postController.js
 const { validationResult } = require('express-validator');
+const { Op } = require('sequelize');
 const sanitizeHtml = require('sanitize-html');
 const { Post, Tag, PostTag, Category, Media, sequelize } = require('../models');
 
@@ -15,10 +16,9 @@ module.exports = {
 
       const where = { status: 'published' };
       if (req.query.q) {
-        // simple title/content LIKE search
-        where[sequelize.Op.or] = [
-          { title: { [sequelize.Op.like]: `%${req.query.q}%` } },
-          { content: { [sequelize.Op.like]: `%${req.query.q}%` } }
+        where[Op.or] = [
+          { title: { [Op.like]: `%${req.query.q}%` } },
+          { content: { [Op.like]: `%${req.query.q}%` } }
         ];
       }
       if (req.query.category) where.category_id = req.query.category;
