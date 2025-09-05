@@ -8,6 +8,8 @@ const cookieParser = require('cookie-parser');
 const { sequelize } = require('./app/models'); 
 const xss = require('xss');
 const app = express();
+const path = require('path');  
+const fs = require('fs'); 
 
 // Middlewares & Security
 app.use(helmet());
@@ -52,8 +54,15 @@ const limiter = rateLimit({
 }); app.use(limiter);
 
 // Routes
-const route = require('./routes/auth');
-app.use('/auth', route);
+app.use('/auth', require('./routes/auth'));
+app.use('/posts', require('./routes/posts'));
+app.use('/categories', require('./routes/categories'));
+app.use('/tags', require('./routes/tags'));
+app.use('/comments', require('./routes/comments'));
+app.use('/media', require('./routes/media'));
+
+// serve uploads statically
+app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
 // start server
 const PORT = process.env.PORT || 3000;
