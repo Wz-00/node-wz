@@ -187,5 +187,4 @@ $RECYCLE.BIN/
 *.lnk
 
 # other
-public/uploads/
 # End of https://www.toptal.com/developers/gitignore/api/windows,visualstudiocode,node
