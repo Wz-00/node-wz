@@ -9,16 +9,26 @@ const Media = db.Media;
 const UPLOAD_DIR = path.resolve(process.cwd(), 'public', 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-// multer storage basic (tetap)
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
+  destination: (req, file, cb) => {
+    cb(null, UPLOAD_DIR);
+  },
   filename: (req, file, cb) => {
-    const ts = Date.now();
-    const safe = file.originalname.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9\.\-_]/g, '');
-    cb(null, `${ts}-${safe}`);
+    const ext = path.extname(file.originalname) || '';
+    const name = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}${ext}`;
+    cb(null, name);
   }
 });
-const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB
+// add to upload middleware options: fileFilter
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg','image/png','image/webp'];
+    if (!allowed.includes(file.mimetype)) return cb(new Error('invalid_file_type'));
+    cb(null, true);
+  }
+});
 
 module.exports = {
   uploadMiddleware: upload.single('file'),
@@ -61,10 +71,23 @@ module.exports = {
       console.log('Creating Media with payload:', payload);
 
       const media = await Media.create(payload);
+      const host = req.get('host') // contoh: 127.0.0.1:3000
+      const protocol = req.protocol // http atau https (jika backend pakai https)
+      const fullUrl = `${protocol}://${host}${payload.path}`
 
       console.log('Media created id=', media.id);
 
-      return res.status(201).json({ data: media });
+      return res.status(201).json({
+        data: {
+          id: media.id,
+          filename: media.filename,
+          path: media.path,      // '/uploads/xxx.jpg'
+          mime: media.mime,
+          size: media.size,
+          full_url: fullUrl      // 'http://127.0.0.1:3000/uploads/xxx.jpg'
+        }
+      });
+
     } catch (err) {
       // print detailed info about DB error
       console.error('UPLOAD ERROR:', err && err.message);

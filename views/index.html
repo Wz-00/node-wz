@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>API Documentation — Node.js MVC</title>
+  <meta name="description" content="Dokumentasi lengkap endpoint API (auth, posts, categories, tags, comments, media) untuk project Node.js menggunakan pola MVC. Contoh request, response, dan catatan otentikasi.">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { padding-top: 4.5rem; }
+    pre code { white-space: pre-wrap; word-break: break-word; }
+    .badge-method { font-weight:600; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace; }
+    .endpoint { border-left: 4px solid #0d6efd; padding-left: 12px; margin-bottom: 1.25rem; }
+    .small-muted { font-size: .85rem; color: #6c757d; }
+  </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="#">API Docs (Node MVC)</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav" aria-controls="nav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="nav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="#overview">Overview</a></li>
+        <li class="nav-item"><a class="nav-link" href="#auth">Auth</a></li>
+        <li class="nav-item"><a class="nav-link" href="#posts">Posts</a></li>
+        <li class="nav-item"><a class="nav-link" href="#categories">Categories</a></li>
+        <li class="nav-item"><a class="nav-link" href="#tags">Tags</a></li>
+        <li class="nav-item"><a class="nav-link" href="#comments">Comments</a></li>
+        <li class="nav-item"><a class="nav-link" href="#media">Media</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<main class="container">
+  <header class="mb-4">
+    <h1 class="h3">Dokumentasi API — Node.js (MVC)</h1>
+    <p class="small-muted">Dokumentasi ini menjelaskan endpoint yang diimplementasikan pada controller yang Anda berikan. Terdapat contoh request (cURL), parameter, requirement otentikasi, dan contoh response.</p>
+  </header>
+
+  <section id="overview" class="mb-5">
+    <h2 class="h5">Ringkasan</h2>
+    <p>Base URL: <span class="mono">http://localhost:3000</span> (sesuaikan dengan konfigurasi server Anda).</p>
+    <p>Header dan mekanisme otentikasi umum:</p>
+    <ul>
+      <li><strong>Access token (JWT)</strong>: dikirimkan di header <code>Authorization: Bearer &lt;token&gt;</code> untuk endpoint yang memerlukan auth.</li>
+      <li><strong>Refresh token</strong>: disimpan sebagai <code>httpOnly</code> cookie bernama <code>refreshToken</code>. Endpoint <code>/auth/refresh</code> juga menerima refresh token lewat body <code>{ refreshToken: '...' }</code>.</li>
+      <li>Respons error umum: 400, 401, 403, 404, 422, 500.</li>
+    </ul>
+
+    <div class="card mb-3">
+      <div class="card-body">
+        <h6 class="mb-2">Table of Endpoints</h6>
+        <div class="row">
+          <div class="col-sm-6 col-lg-4"><a href="#auth" class="d-block">Auth: /auth/*</a></div>
+          <div class="col-sm-6 col-lg-4"><a href="#posts" class="d-block">Posts: /posts</a></div>
+          <div class="col-sm-6 col-lg-4"><a href="#categories" class="d-block">Categories: /categories</a></div>
+          <div class="col-sm-6 col-lg-4"><a href="#tags" class="d-block">Tags: /tags</a></div>
+          <div class="col-sm-6 col-lg-4"><a href="#comments" class="d-block">Comments: /comments</a></div>
+          <div class="col-sm-6 col-lg-4"><a href="#media" class="d-block">Media: /media/upload</a></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AUTH -->
+  <section id="auth" class="mb-5">
+    <h2 class="h5">Auth</h2>
+
+    <article class="endpoint">
+      <h3 class="h6"><span class="badge bg-success badge-method">POST</span> /auth/register</h3>
+      <p>Mendaftar user baru. Melakukan hashing password, transaksi DB, membuat access token dan refresh token (cookie httpOnly).</p>
+      <p><strong>Request body (JSON)</strong>:</p>
+<pre><code>{
+  "name": "Nama Pengguna",
+  "username": "username123",
+  "password": "rahasia",
+  "email": "email@example.com",
+  "role": "user" // optional; default 'user'
+}</code></pre>
+      <p><strong>Responses</strong>:</p>
+      <ul>
+        <li><code>201</code> — berhasil: <code>{ message: 'registered', accessToken, user }</code></li>
+        <li><code>400</code> — validasi gagal atau username/email sudah terpakai.</li>
+        <li><code>500</code> — kesalahan server / DB.</li>
+      </ul>
+      <p><strong>Contoh cURL</strong>:</p>
+<pre><code>curl -X POST http://localhost:3000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Ani","username":"ani01","password":"pass123","email":"ani@example.com"}'
+</code></pre>
+    </article>
+
+    <article class="endpoint">
+      <h3 class="h6"><span class="badge bg-success badge-method">POST</span> /auth/login</h3>
+      <p>Login user: membandingkan password, mengembalikan access token dan menyimpan refresh token sebagai cookie httpOnly.</p>
+      <p><strong>Request body</strong>:</p>
+<pre><code>{ "username": "username123", "password": "rahasia" }</code></pre>
+      <p><strong>Responses</strong>:</p>
+      <ul>
+        <li><code>200</code> — <code>{ message: 'logged_in', accessToken, user }</code></li>
+        <li><code>401</code> — kredensial tidak valid.</li>
+      </ul>
+      <p><strong>Contoh cURL</strong> (menyimpan cookie dari server):</p>
+<pre><code>curl -i -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"ani01","password":"pass123"}' \
+  -c cookies.txt
+</code></pre>
+    </article>
+
+    <article class="endpoint">
+      <h3 class="h6"><span class="badge bg-success badge-method">POST</span> /auth/refresh</h3>
+      <p>Mengeluarkan access token baru menggunakan refresh token. Refresh token dapat dikirimkan lewat cookie httpOnly (<code>refreshToken</code>) atau lewat body <code>{ refreshToken }</code>. Endpoint ini juga melakukan rotate refresh token (menciptakan token baru dan menandai token lama sebagai revoked).</p>
+      <p><strong>Request</strong>:</p>
+<pre><code>// menggunakan cookie (default, lebih aman)
+POST /auth/refresh
+
+// atau lewat JSON
+POST /auth/refresh
+{
+  "refreshToken": "RAW_REFRESH_TOKEN"
+}
+</code></pre>
+      <p><strong>Responses</strong>:</p>
+      <ul>
+        <li><code>200</code> — <code>{ accessToken }</code></li>
+        <li><code>401</code> — <code>no_refresh_token</code>, <code>invalid_refresh_token</code>, atau <code>refresh_token_expired</code></li>
+      </ul>
+      <p><strong>Contoh cURL (mengirim cookie):</strong></p>
+<pre><code>curl -X POST http://localhost:3000/auth/refresh -b cookies.txt
+</code></pre>
+    </article>
+
+    <article class="endpoint">
+      <h3 class="h6"><span class="badge bg-danger badge-method">POST</span> /auth/logout</h3>
+      <p>Logout: menandai refresh token sebagai revoked (jika ada) dan menghapus cookie <code>refreshToken</code>.</p>
+      <p><strong>Request</strong>: cookie atau body <code>{ refreshToken }</code>.</p>
+      <p><strong>Response</strong>: <code>{ message: 'logged_out' }</code> (200).</p>
+      <p><strong>Contoh cURL</strong>:</p>
+<pre><code>curl -X POST http://localhost:3000/auth/logout -b cookies.txt -c /dev/null
+</code></pre>
+    </article>
+  </section>
+
+  <!-- POSTS -->
+  <section id="posts" class="mb-5">
+    <h2 class="h5">Posts</h2>
+
+    <article class="endpoint">
+      <h3 class="h6"><span class="badge bg-primary badge-method">GET</span> /posts</h3>
+      <p>List publik post. Mendukung query params untuk paging dan filter.</p>
+      <p><strong>Query params</strong>:</p>
+      <ul>
+        <li><code>page</code> (default 1)</li>
+        <li><code>limit</code> (default 10, max 50)</li>
+        <li><code>q</code> — pencarian pada title/ content</li>
+        <li><code>tag</code>, <code>category</code>, <code>author</code></li>
+      </ul>
+      <p><strong>Response</strong>:
+<pre><code>{
+  "meta": { "page":1, "limit":10, "total":123, "pages":13 },
+  "data": [ { id, title, slug, excerpt, featured_image, published_at, created_at }, ... ]
+}
+</code></pre></p>
+      <p><strong>Contoh</strong>:
+<pre><code>GET /posts?page=2&limit=5&q=indonesia
+</code></pre></p>
+    </article>
+
+    <article class="endpoint">
+      <h3 class="h6"><span class="badge bg-primary badge-method">GET</span> /posts/:slug</h3>
+      <p>Mengambil satu post berdasar <code>slug</code>. Mengembalikan 404 jika tidak ada atau tidak dipublikasikan.</p>
+      <p><strong>Contoh</strong>:
+<pre><code>GET /posts/apa-itu-nodejs
+</code></pre></p>
+    </article>
+
+    <article class="endpoint">
+      <h3 class="h6"><span class="badge bg-success badge-method">POST</span> /posts</h3>
+      <p>Membuat post baru. <strong>Auth required</strong> (token di header). Data akan disanitasi. Membuat relasi tags dan menyimpan dalam transaction.</p>
+      <p><strong>Request body (JSON)</strong>:</p>
+<pre><code>{
+  "title": "Judul Post",
+  "excerpt": "Ringkasan singkat",
+  "content": "<p>Isi HTML</p>",
+  "category_id": 3,
+  "tags": "1,2,Programming" , // atau array
+  "status": "published", // atau "draft"
+  "featured_image": "/uploads/xyz.jpg"
+}
+</code></pre>
+      <p><strong>Response</strong>: <code>201</code> dengan objek post.</p>
+      <p><strong>Contoh cURL</strong>:
+<pre><code>curl -X POST http://localhost:3000/posts \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer &lt;ACCESS_TOKEN&gt;" \
+  -d '{"title":"Halo","content":"<p>...</p>","category_id":1}'
+</code></pre></p>
+    </article>
+
+    <article class="endpoint">
+      <h3 class="h6"><span class="badge bg-warning text-dark badge-method">PUT</span> /posts/:id</h3>
+      <p>Update post. Pemilik post atau admin yang boleh melakukan update. Jika status diubah menjadi <code>published</code>, <code>published_at</code> diisi jika belum ada.</p>
+      <p><strong>Body</strong>: sama seperti create (hanya field yang ingin diubah dapat dikirim).</p>
+      <p><strong>Errors</strong>: 403 (forbidden), 404 (not_found).</p>
+    </article>
+
+    <article class="endpoint">
+      <h3 class="h6"><span class="badge bg-danger badge-method">DELETE</span> /posts/:id</h3>
+      <p>Soft delete. Hanya owner atau admin. Mengembalikan <code>{ success: true }</code>.</p>
+    </article>
+  </section>
+
+  <!-- CATEGORIES -->
+  <section id="categories" class="mb-5">
+    <h2 class="h5">Categories</h2>
+
+    <article class="endpoint">
+      <h3 class="h6"><span class="badge bg-primary badge-method">GET</span> /categories</h3>
+      <p>List semua kategori. Response: <code>{ data: [ { id, name, slug, description } ] }</code>.</p>
+    </article>
+
+    <article class="endpoint">
+      <h3 class="h6"><span class="badge bg-success badge-method">POST</span> /categories</h3>
+      <p>Membuat kategori baru. <strong>Admin only</strong>. Body: <code>{ name, description }</code>. Jika slug sudah ada, akan mengembalikan existing record (HTTP 200), jika baru 201.</p>
+      <p><strong>Contoh cURL</strong>:
+<pre><code>curl -X POST http://localhost:3000/categories \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer &lt;ADMIN_TOKEN&gt;" \
+  -d '{"name":"Teknologi","description":"Kategori teknologi"}'
+</code></pre></p>
+    </article>
+
+    <article class="endpoint">
+      <h3 class="h6"><span class="badge bg-primary badge-method">GET</span> /categories/posts</h3>
+      <p>Mengambil kategori beserta posts terbaru tiap kategori. Query param: <code>limitPerCategory</code> (default 4, max 6).</p>
+    </article>
+  </section>
+
+  <!-- TAGS -->
+  <section id="tags" class="mb-5">
+    <h2 class="h5">Tags</h2>
+
+    <article class="endpoint">
+      <h3 class="h6"><span class="badge bg-primary badge-method">GET</span> /tags</h3>
+      <p>List tags: <code>{ data: [ { id, name, slug } ] }</code>.</p>
+    </article>
+
+    <article class="endpoint">
+      <h3 class="h6"><span class="badge bg-success badge-method">POST</span> /tags</h3>
+      <p>Membuat tag. Body: <code>{ name }</code>. Jika tag sudah ada, akan mengembalikan existing record (200) atau 201 jika baru.</p>
+    </article>
+  </section>
+
+  <!-- COMMENTS -->
+  <section id="comments" class="mb-5">
+    <h2 class="h5">Comments</h2>
+
+    <article class="endpoint">
+      <h3 class="h6"><span class="badge bg-success badge-method">POST</span> /comments</h3>
+      <p>Menambah komentar untuk post. Jika user terautentikasi, nama dan email diisi otomatis.</p>
+      <p><strong>Body</strong>:
+<pre><code>{
+  "post_id": 12,
+  "content": "Komentar saya",
+  "name": "Anon",
+  "email": "anon@example.com"
+}
+</code></pre></p>
+      <p>Response: <code>201</code> dengan objek comment (status: 'pending').</p>
+    </article>
+
+    <article class="endpoint">
+      <h3 class="h6"><span class="badge bg-primary badge-method">GET</span> /comments/posts/:postId</h3>
+      <p>Ambil komentar yang telah <code>approved</code> untuk sebuah post. Mengembalikan array komentar terurut naik berdasarkan <code>created_at</code>.</p>
+    </article>
+
+    <article class="endpoint">
+      <h3 class="h6"><span class="badge bg-warning text-dark badge-method">POST</span> /comments/:id/moderate</h3>
+      <p>Moderasi komentar (admin only). Body contoh: <code>{ "status": "approved" }</code>. Jika komentar tidak ditemukan 404 dikembalikan.</p>
+    </article>
+  </section>
+
+  <!-- MEDIA -->
+  <section id="media" class="mb-5">
+    <h2 class="h5">Media / Upload</h2>
+
+    <article class="endpoint">
+      <h3 class="h6"><span class="badge bg-success badge-method">POST</span> /media/upload</h3>
+      <p>Upload file menggunakan <code>multer</code>. Middleware: <code>uploadMiddleware</code>. Field file bernama <code>file</code>. Size limit 5MB. Allowed MIME: <code>image/jpeg, image/png, image/webp</code>.</p>
+      <p>Server mencoba mengkonversi ke WebP via <code>sharp</code> (opsional). Setelah sukses, media disimpan di database dan path akan dikembalikan.</p>
+      <p><strong>Contoh cURL (multipart)</strong>:
+<pre><code>curl -X POST http://localhost:3000/media/upload \
+  -H "Authorization: Bearer &lt;TOKEN&gt;" \
+  -F "file=@/path/to/image.jpg"
+</code></pre></p>
+      <p><strong>Response sukses</strong> 201:
+<pre><code>{
+  "data": {
+    "id": 123,
+    "filename": "abc123.jpg",
+    "path": "/uploads/abc123.jpg",
+    "mime": "image/jpeg",
+    "size": 234567,
+    "full_url": "http://127.0.0.1:3000/uploads/abc123.jpg"
+  }
+}
+</code></pre></p>
+      <p><strong>Errors</strong>: 400 (<code>no_file</code>), 500 (<code>upload_error</code>).</p>
+    </article>
+  </section>
+
+  <footer class="mt-5 mb-4 small-muted">
+    <p class="mb-1">Catatan teknis:</p>
+    <ul>
+      <li>Beberapa operasi dilakukan di dalam <code>sequelize.transaction()</code> — jika terjadi kegagalan, transaksi akan di-rollback.</li>
+      <li>Validasi input menggunakan <code>express-validator</code>. Kesalahan validasi biasanya akan mengembalikan <code>422</code> dengan detail.</li>
+      <li>Gunakan HTTPS di production dan set <code>COOKIE_SECURE=true</code> jika diperlukan untuk memastikan cookie refresh hanya dikirim via HTTPS.</li>
+    </ul>
+    <p>Butuh versi README yang bisa di-download atau tambahan contoh Postman collection? Beri tahu saya, saya bantu generate.</p>
+  </footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
